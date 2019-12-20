@@ -183,7 +183,7 @@ Step_t Recall[11] = {
   {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
   {0, STICK_CENTER, STICK_CENTER, 75},
   {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
-  // Wait for the tranmission
+  // Wait for the recall process to complete
   {0, STICK_CENTER, STICK_CENTER, 300}
 };
 
@@ -202,7 +202,10 @@ Step_t BreakEgg[2] = {
 };
 
 // Starts from the front of the house, on a bike. Gets an egg
-// from the lady (or not). Ends up on a bike.
+// from the lady (or not). Ends up on a bike. Notice the sequence is A-A-B-A-B. 
+// This is designed specifically so that if there is no egg available, the
+// player will properly end the conversation with the lady and walk away from
+// her. DO NOT change this unless you really understand the reasoning.
 Step_t GetEgg[22] = {
   {0, STICK_CENTER, STICK_CENTER, 300},
   {SWITCH_PLUS, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
@@ -210,7 +213,7 @@ Step_t GetEgg[22] = {
   {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
   {0, STICK_CENTER, STICK_CENTER, 75},
   {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
-  // Music plays for "new egg".
+  // Music plays for "new egg". This is a long wait.
   {0, STICK_CENTER, STICK_CENTER, 600},
   {SWITCH_B, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
   {0, STICK_CENTER, STICK_CENTER, 200},
@@ -240,6 +243,7 @@ int step_num = 0;
 int loop_num = 0;
 int egg_slot = 0;
 
+// Executes a sequence of steps.
 void ExecuteStep(USB_JoystickReport_Input_t* const ReportData, Step_t* StepData, int size) {
   ReportData->Button |= StepData[step_num].Button;
   ReportData->LX = StepData[step_num].LX;
@@ -253,6 +257,7 @@ void ExecuteStep(USB_JoystickReport_Input_t* const ReportData, Step_t* StepData,
   return;
 }
 
+// Executes the entire sequence of steps for `num_its` iterations.
 void ExecuteStepLoop(USB_JoystickReport_Input_t* const ReportData, Step_t* StepData, int size, int num_its) {
   ReportData->Button |= StepData[step_num].Button;
   ReportData->LX = StepData[step_num].LX;
@@ -315,6 +320,10 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
   } else if (phase == 1) {
     ExecuteStepPartialLoop(ReportData, GetEgg, 22, 13, 15, egg_slot + 1);
   } else if (phase == 2) {
+    // The recall here is needed, otherwise the player will bump into an old man
+    // on the bridge. Cannot be replaced with going down a few steps, because if
+    // there is no egg available, the player would have already walked down a
+    // little bit.
     ExecuteStep(ReportData, Recall, 11);
   } else if (phase == 3) {
     ExecuteStepLoop(ReportData, BikeBig, 2, 55);

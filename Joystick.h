@@ -107,6 +107,8 @@ typedef struct {
 	uint8_t  RY;     // Right Stick Y
 } USB_JoystickReport_Output_t;
 
+// This specifies a single step, i.e. which buttons should be pressed for
+// how long a duration.
 typedef struct {
   uint16_t Button;
   uint8_t LX;
