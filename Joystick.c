@@ -150,13 +150,145 @@ typedef enum {
 State_t state = SYNC_CONTROLLER;
 
 #define ECHOES 2
+#define BUTTON_DURATION 10
 int echoes = 0;
 USB_JoystickReport_Input_t last_report;
 
-int report_count = 0;
 int xpos = 0;
 int ypos = 0;
 int portsval = 0;
+
+// Sync the controller. MUST HAVE!
+Step_t SyncController[8] = {
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_L | SWITCH_R, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_L | SWITCH_R, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION}
+};
+
+// Recalls to the front of the house.
+Step_t Recall[11] = {
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_X, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  // Wait for map to pop
+  {0, STICK_CENTER, STICK_CENTER, 300},
+  {0, 170, STICK_CENTER, 25},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  // Wait for the tranmission
+  {0, STICK_CENTER, STICK_CENTER, 300}
+};
+
+Step_t BikeBig[2] = {
+  {0, STICK_MAX, STICK_CENTER, 75},
+  {SWITCH_B, STICK_MAX, STICK_CENTER, BUTTON_DURATION}
+};
+
+Step_t Bike[1] = {
+  {0, STICK_MAX, STICK_CENTER, 100},
+};
+
+Step_t BreakEgg[2] = {
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_B, STICK_CENTER, STICK_CENTER, BUTTON_DURATION}
+};
+
+// Starts from the front of the house, on a bike. Gets an egg
+// from the lady (or not). Ends up on a bike.
+Step_t GetEgg[22] = {
+  {0, STICK_CENTER, STICK_CENTER, 300},
+  {SWITCH_PLUS, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_MIN, STICK_MIN, 300},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  // Music plays for "new egg".
+  {0, STICK_CENTER, STICK_CENTER, 600},
+  {SWITCH_B, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 200},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  {SWITCH_B, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 300},
+  // Goes down the pokemon menu. Start of the loop (loop_start:13).
+  {0, STICK_CENTER, STICK_MAX, 25},
+  {0, STICK_CENTER, STICK_CENTER, 75},
+  // loop_end:15
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 300},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 200},
+  {SWITCH_A, STICK_CENTER, STICK_CENTER, BUTTON_DURATION},
+  {0, STICK_CENTER, STICK_CENTER, 200},
+  // Get on the bike!
+  {SWITCH_PLUS, STICK_CENTER, STICK_CENTER, BUTTON_DURATION}
+};
+
+int phase = 0;
+// The current point of execution in a step. 
+int step_num = 0;
+// Number of times that a loop has been executed. Used in ExecuteStepLoop and
+// ExecuteStepPartialLoop.
+int loop_num = 0;
+int egg_slot = 0;
+
+void ExecuteStep(USB_JoystickReport_Input_t* const ReportData, Step_t* StepData, int size) {
+  ReportData->Button |= StepData[step_num].Button;
+  ReportData->LX = StepData[step_num].LX;
+  ReportData->LY = StepData[step_num].LY;
+  echoes = StepData[step_num].Duration;
+  step_num++;
+  if (step_num >= size) {
+    step_num = 0;
+    phase++;
+  }
+  return;
+}
+
+void ExecuteStepLoop(USB_JoystickReport_Input_t* const ReportData, Step_t* StepData, int size, int num_its) {
+  ReportData->Button |= StepData[step_num].Button;
+  ReportData->LX = StepData[step_num].LX;
+  ReportData->LY = StepData[step_num].LY;
+  echoes = StepData[step_num].Duration;
+  step_num++;
+  if (step_num >= size) {
+    step_num = 0;
+    loop_num++;
+    if (loop_num >= num_its) {
+      loop_num = 0;
+      phase++;
+    }
+  }
+  return;
+}
+
+// Repeats from step `loop_start` to `loop_end - 1` for `num_its` iterations.
+// The other steps are executed once sequentially.
+void ExecuteStepPartialLoop(USB_JoystickReport_Input_t* const ReportData, Step_t* StepData, int size, int loop_start, int loop_end, int num_its) {
+  ReportData->Button |= StepData[step_num].Button;
+  ReportData->LX = StepData[step_num].LX;
+  ReportData->LY = StepData[step_num].LY;
+  echoes = StepData[step_num].Duration;
+  step_num++;
+  if (step_num == loop_end && loop_num < num_its - 1) {
+      step_num = loop_start;
+      loop_num++;
+  }
+  if (step_num >= size) {
+    step_num = 0;
+    loop_num = 0;
+    phase++;
+  }
+  return;
+}
 
 // Prepare the next report for the host.
 void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
@@ -177,93 +309,24 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 		return;
 	}
 
-	// States and moves management
-	switch (state)
-	{
-		case SYNC_CONTROLLER:
-			if (report_count > 100)
-			{
-				report_count = 0;
-				state = SYNC_POSITION;
-			}
-			else if (report_count == 25 || report_count == 50)
-			{
-				ReportData->Button |= SWITCH_L | SWITCH_R;
-			}
-			else if (report_count == 75 || report_count == 100)
-			{
-				ReportData->Button |= SWITCH_A;
-			}
-			report_count++;
-			break;
-		case SYNC_POSITION:
-			if (report_count == 250)
-			{
-				report_count = 0;
-				xpos = 0;
-				ypos = 0;
-				state = STOP_X;
-			}
-			else
-			{
-				// Moving faster with LX/LY
-				ReportData->LX = STICK_MIN;
-				ReportData->LY = STICK_MIN;
-			}
-			if (report_count == 75 || report_count == 150)
-			{
-				// Clear the screen
-				ReportData->Button |= SWITCH_MINUS;
-			}
-			report_count++;
-			break;
-		case STOP_X:
-			state = MOVE_X;
-			break;
-		case STOP_Y:
-			if (ypos < 120 - 1)
-				state = MOVE_Y;
-			else
-				state = DONE;
-			break;
-		case MOVE_X:
-			if (ypos % 2)
-			{
-				ReportData->HAT = HAT_LEFT;
-				xpos--;
-			}
-			else
-			{
-				ReportData->HAT = HAT_RIGHT;
-				xpos++;
-			}
-			if (xpos > 0 && xpos < 320 - 1)
-				state = STOP_X;
-			else
-				state = STOP_Y;
-			break;
-		case MOVE_Y:
-			ReportData->HAT = HAT_BOTTOM;
-			ypos++;
-			state = STOP_X;
-			break;
-		case DONE:
-			#ifdef ALERT_WHEN_DONE
-			portsval = ~portsval;
-			PORTD = portsval; //flash LED(s) and sound buzzer if attached
-			PORTB = portsval;
-			_delay_ms(250);
-			#endif
-			return;
-	}
-
-	// Inking
-	if (state != SYNC_CONTROLLER && state != SYNC_POSITION)
-		if (pgm_read_byte(&(image_data[(xpos / 8) + (ypos * 40)])) & 1 << (xpos % 8))
-			ReportData->Button |= SWITCH_A;
+  // Main Procedure
+  if (phase == 0) {
+    ExecuteStep(ReportData, SyncController, 8);
+  } else if (phase == 1) {
+    ExecuteStepPartialLoop(ReportData, GetEgg, 22, 13, 15, egg_slot + 1);
+  } else if (phase == 2) {
+    ExecuteStep(ReportData, Recall, 11);
+  } else if (phase == 3) {
+    ExecuteStepLoop(ReportData, BikeBig, 2, 55);
+  } else if (phase == 4) {
+    ExecuteStep(ReportData, Recall, 11);
+  }
+  // Repeat Main Procedure
+  if (phase == 5) {
+    phase = 1;
+    egg_slot = (egg_slot + 1) % 5;
+  }
 
 	// Prepare to echo this report
 	memcpy(&last_report, ReportData, sizeof(USB_JoystickReport_Input_t));
-	echoes = ECHOES;
-
 }
