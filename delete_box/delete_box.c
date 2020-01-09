@@ -24,7 +24,7 @@ these buttons for our use.
  *  the demo and is responsible for the initial application hardware configuration.
  */
 
-#include "Joystick.h"
+#include "delete_box.h"
 
 extern const uint8_t image_data[0x12c1] PROGMEM;
 
@@ -343,7 +343,7 @@ void ExecuteStepPartialLoop(USB_JoystickReport_Input_t* const ReportData, Step_t
 }
 
 
-const int Pages = 5;
+const int Pages = 18;
 const int Singles = 0;
 int x = 0, y = 0;
 int total = 0;
