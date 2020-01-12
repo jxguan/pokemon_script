@@ -257,9 +257,17 @@ Step_t StartChallenge[15] = {
   BUTTON_A, {0, STICK_CENTER, STICK_CENTER, 500}
 };
 
-Step_t Fight[5] = {
+Step_t EnterFight[5] = {
   BUTTON_A, BUTTON_GAP,
   {0, STICK_CENTER, STICK_MIN, 300},
+  BUTTON_B, BUTTON_GAP
+};
+
+Step_t Fight[10] = {
+  BUTTON_A, BUTTON_GAP,
+  {0, STICK_MIN, STICK_CENTER, 25}, BUTTON_GAP,
+  BUTTON_A, BUTTON_GAP,
+  {0, STICK_CENTER, STICK_MAX, 25}, BUTTON_GAP,
   BUTTON_A, BUTTON_GAP
 };
 
@@ -383,7 +391,7 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 		return;
 	}
 
-  if (phase >= 6) {
+  if (phase >= 9) {
     phase = 1;
   }
 
@@ -393,9 +401,13 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 	}
 	else if (phase == 1) {
     ExecuteStep(ReportData, StartChallenge, 15);
-	} else if (phase >= 2 && phase <= 4) {
-    ExecuteStepPartialLoop(ReportData, Fight, 5, 3, 5, 420);
-  } else if (phase == 5) {
+	} else if (phase >= 2 && phase <= 7) {
+    if (phase % 2 == 0) {
+      ExecuteStepPartialLoop(ReportData, EnterFight, 5, 3, 5, 90);
+    } else {
+      ExecuteStepPartialLoop(ReportData, Fight, 10, 8, 10, 420);
+    }
+  } else if (phase == 8) {
     ExecuteStepLoop(ReportData, Win, 2, 80);
   }
 
